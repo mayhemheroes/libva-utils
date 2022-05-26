@@ -1,0 +1,5 @@
+project: rnshah9/libva-utils
+target: jpegenc
+
+cmds:
+  - cmd: /repo/build/encode/jpegenc 5 5 @@ out 0 50
