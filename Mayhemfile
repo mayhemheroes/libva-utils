@@ -1,10 +1,6 @@
 project: rnshah9/libva-utils
-target: jpegenc
-tests:
-  - file://test.mpeg
-image: ghcr.io/rnshah9/playground:libva-utils
-
+target: loadjpeg
 
 cmds:
-  - cmd: /repo/build/encode/jpegenc 5 5 @@ out 0 50
-  - cmd: /repo/build/encode/mpeg2vaenc 10 10 @@ out
+  - cmd: /repo/build/decode/loadjpeg @@
+    filepath: /test.jpeg
