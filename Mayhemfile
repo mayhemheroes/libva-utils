@@ -1,6 +1,6 @@
-project: rnshah9/libva-utils
+project: libva-utils
 target: loadjpeg
 
 cmds:
-  - cmd: /repo/build/decode/loadjpeg @@
+  - cmd: /repo/build/decode/loadjpeg /test.jpeg
     filepath: /test.jpeg
