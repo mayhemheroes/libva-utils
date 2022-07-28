@@ -2,5 +2,4 @@ project: libva-utils
 target: loadjpeg
 
 cmds:
-  - cmd: /repo/build/decode/loadjpeg /test.jpeg
-    filepath: /test.jpeg
+  - cmd: /install/bin/loadjpeg @@
