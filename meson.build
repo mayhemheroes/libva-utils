@@ -1,5 +1,5 @@
 project('libva-utils', 'c', 'cpp',
-        version : '2.15.0.1',
+        version : '2.16.0.1',
         default_options : [
           'warning_level=2',
           'c_std=gnu99',
@@ -9,6 +9,8 @@ project('libva-utils', 'c', 'cpp',
         meson_version : '>= 0.42.0')
 
 c = meson.get_compiler('c')
+
+threads = dependency('threads')
 
 libva_dep = dependency('libva', version: '>= 1.1.0')
 
