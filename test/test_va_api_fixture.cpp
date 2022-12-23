@@ -29,8 +29,14 @@
 
 #include <fcntl.h> // for O_RDWR
 #include <limits>
+
+#if defined(_WIN32)
+#include <va/va_win32.h>
+#include <compat_win32.h>
+#else
 #include <unistd.h> // for close()
 #include <va/va_drm.h>
+#endif
 
 namespace VAAPI
 {
@@ -42,14 +48,16 @@ VAStatus VAAPIFixtureSharedDisplay::s_initStatus = VA_STATUS_SUCCESS;
 VAAPIFixture::VAAPIFixture()
     : ::testing::Test::Test()
     , m_vaDisplay(NULL)
-    , m_restoreDriverName(getenv("LIBVA_DRIVER_NAME"))
     , m_drmHandle(-1)
     , m_configID(VA_INVALID_ID)
     , m_contextID(VA_INVALID_ID)
     , m_bufferID(VA_INVALID_ID)
     , m_skip("")
 {
-    return;
+    // If we do not copy the value and use the same pointer returned by getenv to restore the value
+    // in ~VAAPIFixture with setenv, we see garbage memory being set on Windows platforms.
+    char* libva_driver = getenv("LIBVA_DRIVER_NAME");
+    if (libva_driver) m_restoreDriverName = libva_driver;
 }
 
 VAAPIFixture::~VAAPIFixture()
@@ -62,19 +70,25 @@ VAAPIFixture::~VAAPIFixture()
     // Ensure LIBVA_DRIVER_NAME environment is restored to its original
     // setting so successive tests use the expected driver.
     unsetenv("LIBVA_DRIVER_NAME");
-    if (m_restoreDriverName)
-        setenv("LIBVA_DRIVER_NAME", m_restoreDriverName, 1);
+    if (!m_restoreDriverName.empty())
+        setenv("LIBVA_DRIVER_NAME", m_restoreDriverName.c_str(), 1);
 
-    if (not m_skip.empty()) {
+    if (!m_skip.empty()) {
         EXPECT_FALSE(HasFailure())
                 << "skip message is set, but something failed";
-        if (not HasFailure()) {
+        if (!HasFailure()) {
             RecordProperty("skipped", true);
             std::cout << "[ SKIPPED ] " << m_skip << std::endl;
         }
     }
 }
 
+#if defined(_WIN32)
+static VADisplay getWin32Display(LUID* adapter)
+{
+    return vaGetDisplayWin32(adapter);
+}
+#else
 static VADisplay getDrmDisplay(int &fd)
 {
     typedef std::vector<std::string> DevicePaths;
@@ -97,11 +111,14 @@ static VADisplay getDrmDisplay(int &fd)
 
     return NULL;
 }
-
+#endif
 VADisplay VAAPIFixture::getDisplay()
 {
+#if defined(_WIN32)
+    m_vaDisplay = getWin32Display(NULL);
+#else
     m_vaDisplay = getDrmDisplay(m_drmHandle);
-
+#endif
     return m_vaDisplay;
 }
 
@@ -136,7 +153,7 @@ void VAAPIFixture::queryConfigProfiles(Profiles& profiles) const
     EXPECT_STATUS(
         vaQueryConfigProfiles(m_vaDisplay, profiles.data(), &numProfiles));
 
-    if (not HasFailure()) {
+    if (!HasFailure()) {
         ASSERT_LE(numProfiles, maxProfiles);
         ASSERT_GT(numProfiles, 0);
         profiles.resize(numProfiles);
@@ -158,7 +175,7 @@ void VAAPIFixture::queryConfigEntrypoints(const VAProfile& profile,
         vaQueryConfigEntrypoints(m_vaDisplay, profile, entrypoints.data(),
                                  &numEntrypoints));
 
-    if ((VA_STATUS_SUCCESS == expectation) and not HasFailure()) {
+    if ((VA_STATUS_SUCCESS == expectation) && !HasFailure()) {
         ASSERT_LE(numEntrypoints, maxEntrypoints);
         ASSERT_GT(numEntrypoints, 0);
         entrypoints.resize(numEntrypoints);
@@ -203,7 +220,7 @@ void VAAPIFixture::getConfigAttributes(const VAProfile& profile,
     if (defaults) {
         // fill config attributes with default config attributes
         const auto op = [](const VAConfigAttribType & t) {
-            return VAConfigAttrib{type: t, value: VA_ATTRIB_NOT_SUPPORTED};
+            return VAConfigAttrib{/*type:*/ t, /*value:*/ VA_ATTRIB_NOT_SUPPORTED};
         };
         std::transform(g_vaConfigAttribTypes.begin(),
                        g_vaConfigAttribTypes.end(), std::back_inserter(attribs), op);
@@ -499,8 +516,11 @@ VAAPIFixtureSharedDisplay::VAAPIFixtureSharedDisplay() : VAAPIFixture() { }
 void VAAPIFixtureSharedDisplay::SetUpTestSuite()
 {
     if (s_drmHandle < 0) {
+#if defined(_WIN32)
+        s_vaDisplay = getWin32Display(NULL);
+#else
         s_vaDisplay = getDrmDisplay(s_drmHandle);
-
+#endif
         int majorVersion, minorVersion;
         s_initStatus = vaInitialize(s_vaDisplay, &majorVersion, &minorVersion);
     }
@@ -508,14 +528,15 @@ void VAAPIFixtureSharedDisplay::SetUpTestSuite()
 
 void VAAPIFixtureSharedDisplay::TearDownTestSuite()
 {
-    if (s_drmHandle >= 0) {
+    if (s_vaDisplay) {
         if (s_initStatus == VA_STATUS_SUCCESS) {
             vaTerminate(s_vaDisplay);
             s_vaDisplay = nullptr;
         } else {
             s_initStatus = VA_STATUS_SUCCESS;
         }
-
+    }
+    if (s_drmHandle >= 0) {
         close(s_drmHandle);
         s_drmHandle = -1;
     }

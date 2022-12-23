@@ -1,5 +1,5 @@
 project('libva-utils', 'c', 'cpp',
-        version : '2.16.0.1',
+        version : '2.17.0.1',
         default_options : [
           'warning_level=2',
           'c_std=gnu99',
@@ -17,8 +17,11 @@ libva_dep = dependency('libva', version: '>= 1.1.0')
 libva_utils_flags = [ '-Wno-unused-parameter',
                       '-Wno-sign-compare' ]
 
+backends = ''
+
 # DRM
 use_drm = false
+drm_deps=[]
 if get_option('drm') != 'false'
   require_drm = get_option('drm') == 'true'
   drm_deps = [
@@ -32,6 +35,7 @@ if get_option('drm') != 'false'
     endif
   endforeach
   if use_drm
+    backends += ' drm'
     libva_utils_flags += [ '-DHAVE_VA_DRM=1' ]
   endif
 endif
@@ -51,6 +55,7 @@ if get_option('x11') != 'false'
     endif
   endforeach
   if use_x11
+    backends += ' x11'
     libva_utils_flags += [ '-DHAVE_VA_X11=1' ]
   endif
 endif
@@ -70,22 +75,58 @@ if get_option('wayland') != 'false'
     endif
   endforeach
   if use_wayland
+    backends += ' wayland'
     libva_utils_flags += [ '-DHAVE_VA_WAYLAND=1' ]
+  endif
+endif
+
+# WIN32
+use_win32 = false
+if get_option('win32') != 'false'
+  require_win32 = get_option('win32') == 'true'
+  use_win32 = dependency('libva-win32', required: require_win32).found()
+  if use_win32
+    libva_utils_flags = [ '-DHAVE_VA_WIN32=1', '-DNOMINMAX']
+    dep_dxheaders = dependency('directx-headers', required : false)
+    if not dep_dxheaders.found()
+      dep_dxheaders = dependency('DirectX-Headers',
+        version : '>= v1.0.2',
+        fallback : ['DirectX-Headers', 'dep_dxheaders'],
+        required : use_win32
+      )
+    endif
   endif
 endif
 
 add_project_arguments(libva_utils_flags,
                       language: ['c', 'cpp'])
 
-subdir('common')
-subdir('decode')
-subdir('encode')
-subdir('putsurface')
+if use_win32
+  subdir('getopt')
+  win32_deps = [ dependency('libva-win32', required: require_win32), idep_getopt, dep_dxheaders]
+endif
+
+subdir('common') # Uses win32_deps
 subdir('vainfo')
-subdir('videoprocess')
-subdir('vendor/intel')
-subdir('vendor/intel/sfcsample')
+
+if not use_win32
+  subdir('decode')
+  subdir('encode')
+  subdir('putsurface')
+  subdir('videoprocess')
+  subdir('vendor/intel')
+  subdir('vendor/intel/sfcsample')
+endif
 
 if get_option('tests')
   subdir('test')
+endif
+
+if meson.version().version_compare('>= 0.53')
+  summary({
+    'Libva VA-API version' : libva_dep.version(),
+    'Installation prefix' : get_option('prefix'),
+    'Extra window systems' : backends,
+    'Enable Unit-tests': get_option('tests')
+  }, bool_yn: true)
 endif
