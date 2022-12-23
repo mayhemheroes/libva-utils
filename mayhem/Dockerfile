@@ -29,3 +29,4 @@ RUN make -j8
 RUN make install
 
 COPY --from=builder /install /install
+ENV LD_LIBRARY_PATH=/usr/local/lib
