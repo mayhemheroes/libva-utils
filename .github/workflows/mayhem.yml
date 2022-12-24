@@ -59,7 +59,8 @@ jobs:
       fail-fast: false
       matrix:
         mayhemfile:
-          - mayhem/Mayhemfile
+          - mayhem/Mayhemfile_loadjpeg
+          - mayhem/Mayhemfile_tinyjpeg_parse_header
 
     steps:
       - uses: actions/checkout@v3
