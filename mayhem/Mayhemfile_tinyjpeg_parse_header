@@ -1,0 +1,8 @@
+project: libva-utils
+target: tinyjpeg-parse-header
+testsuite:
+  - file://mayhem/corpus
+
+cmds:
+  - cmd: /fuzz_tinyjpeg_parse_header
+    libfuzzer: true
