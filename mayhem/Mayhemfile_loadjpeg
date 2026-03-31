@@ -1,0 +1,5 @@
+project: libva-utils
+target: loadjpeg
+
+cmds:
+  - cmd: /install/bin/loadjpeg @@
