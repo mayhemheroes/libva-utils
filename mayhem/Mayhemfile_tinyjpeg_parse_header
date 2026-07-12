@@ -1,0 +1,10 @@
+project: libva-utils
+target: tinyjpeg-parse-header
+
+testsuite:
+  - https://$MAYHEM_DOMAIN/$MAYHEM_PROJECT/$MAYHEM_TARGET/testsuite.tar
+  - file://mayhem/tinyjpeg-parse-header/testsuite
+
+cmds:
+  - cmd: /mayhem/fuzz_tinyjpeg_parse_header
+    libfuzzer: true
